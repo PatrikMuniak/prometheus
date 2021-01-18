@@ -1,0 +1,27 @@
+---
+- hosts: all
+  become: true
+
+  vars:
+    download_dir: /tmp
+    prometheus: prometheus-2.24.0.linux-amd64
+
+
+  pre_tasks:
+    - name: Update apt cache if needed.
+      apt: update_cache=true cache_valid_time=3600
+
+  tasks:
+    - name: Download Prometheus
+      get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.24.0/{{ prometheus }}.tar.gz
+        dest: /tmp
+        # checksum: sha256 e54c37eb30879f5b6416b11a96217a1dfcff65e0eca1ab5ce7b783b940cfe0eb
+
+    - name: Expand Prometheus
+      unarchive:
+        src: "{{ download_dir }}/{{ prometheus }}"
+        dest: "/var/www/{{ prometheus }}"
+        remote_src: true
+    
+    - name: 
