@@ -1,0 +1,112 @@
+---
+- hosts: all
+  become: true
+
+  vars:
+    download_dir: /tmp
+    prometheus: prometheus-2.24.0.linux-amd64
+
+
+  pre_tasks:
+    - name: Update apt cache if needed.
+      apt: update_cache=true cache_valid_time=3600
+
+  tasks:
+    - name: Download Prometheus
+      get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.24.0/{{ prometheus }}.tar.gz
+        dest: /tmp
+        checksum: "sha256:e54c37eb30879f5b6416b11a96217a1dfcff65e0eca1ab5ce7b783b940cfe0eb"
+
+    - name: Expand Prometheus
+      unarchive:
+        src: "{{ download_dir }}/{{ prometheus }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+
+    - name: Create user Prometheus
+      user:
+        name: prometheus
+        create_home: false
+        shell: /bin/false
+
+    - name: Create var/lib/prometheus directory
+      file: 
+        path: /var/lib/prometheus
+        state: directory
+        group: prometheus
+        owner: prometheus
+
+    - name: Create etc/prometheus directory
+      file: 
+        path: /etc/prometheus
+        state: directory
+        group: prometheus
+        owner: prometheus
+      
+    - name: Move prometheus bin to /usr/local/bin and set ownership and group to prometheus
+      copy: 
+        src: /tmp/{{ prometheus }}/prometheus
+        dest: /usr/local/bin
+        remote_src: true
+        group: prometheus
+        owner: prometheus
+        mode: +rwx
+
+    - name: Move promtool bin to /usr/local/bin and set ownership and group to prometheus
+      copy: 
+        src: /tmp/{{ prometheus }}/promtool
+        dest: /usr/local/bin
+        remote_src: true
+        group: prometheus
+        owner: prometheus
+
+    - name: Move consoles to /etc/prometheus and set ownership and group to prometheus
+      copy: 
+        src: /tmp/{{ prometheus }}/consoles
+        dest: /etc/prometheus
+        remote_src: true
+        group: prometheus
+        owner: prometheus
+
+    - name: Move Move console_libraries /etc/prometheus set ownership and group to prometheus
+      copy: 
+        src: /tmp/{{ prometheus }}/console_libraries
+        dest: /etc/prometheus
+        remote_src: true
+        group: prometheus
+        owner: prometheus
+
+    - name: Copy prometheus.yml to /etc/prometheus
+      copy:
+        src: ./files/prometheus/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        group: prometheus
+        owner: prometheus
+        register: prometheusConfig
+
+    - name: Copy prometheus.service to /etc/systemd/system/prometheus.service
+      copy:
+        src: ./files/prometheus/prometheus.service
+        dest: /etc/systemd/system/prometheus.service
+        group: prometheus
+        owner: prometheus
+
+    - name: Install systemd
+      package:
+        name: systemd
+        state: present
+    # - name: Install dfw
+    - name: start prometheus service
+      systemd:
+        name: prometheus
+        state: started
+        daemon_reload: true
+      
+    - name: restart prometheus service
+      systemd:
+        name: prometheus
+        state: restarted
+        daemon_reload: true
+      when: prometheusConfig.changed
+
